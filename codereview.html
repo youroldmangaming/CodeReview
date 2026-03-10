@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CodeReview.</title>
+<meta name="description" content="A free, self-contained static code analysis tool for JavaScript, TypeScript, Python, Java, and HTML. Runs 100% locally — no data leaves your browser."/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:#0c0c0e; --surface:rgba(255,255,255,0.025); --border:rgba(255,255,255,0.07);
+    --accent:#4ec9b0; --accent2:#3aa88e; --text:#e2e2e2;
+    --muted:rgba(255,255,255,0.35); --dim:rgba(255,255,255,0.18);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;overflow-x:hidden;}
+  body::before{content:'';position:fixed;inset:0;z-index:0;background-image:linear-gradient(rgba(255,255,255,0.017) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.017) 1px,transparent 1px);background-size:44px 44px;pointer-events:none;}
+  body::after{content:'';position:fixed;left:0;right:0;height:2px;z-index:0;background:linear-gradient(90deg,transparent,rgba(78,201,176,0.14),transparent);animation:scan 9s linear infinite;pointer-events:none;}
+  .wrap{position:relative;z-index:1;max-width:1060px;margin:0 auto;padding:38px 22px 60px;}
+  .header{margin-bottom:28px;}
+  .header-badge{display:flex;align-items:center;gap:10px;margin-bottom:7px;}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent);animation:pulse 2s ease-in-out infinite;}
+  .badge-text{font-size:10px;letter-spacing:0.22em;color:var(--dim);}
+  .logo{font-family:'Syne',sans-serif;font-size:clamp(26px,5vw,48px);font-weight:800;letter-spacing:-0.02em;background:linear-gradient(135deg,#fff 0%,rgba(255,255,255,0.4) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1;}
+  .logo span{-webkit-text-fill-color:var(--accent);}
+  .tagline{margin-top:6px;font-size:11px;color:var(--dim);letter-spacing:0.05em;}
+  .lang-row{display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+  .lang-label{font-size:9px;letter-spacing:0.18em;color:var(--dim);white-space:nowrap;}
+  .lang-btn{padding:5px 14px;background:var(--surface);border:1px solid var(--border);border-radius:20px;color:var(--dim);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.08em;cursor:pointer;transition:all 0.2s;}
+  .lang-btn:hover{border-color:rgba(78,201,176,0.3);color:rgba(255,255,255,0.5);}
+  .lang-btn.active{background:rgba(78,201,176,0.12);border-color:rgba(78,201,176,0.45);color:var(--accent);}
+  .lang-detected{font-size:9px;letter-spacing:0.12em;color:rgba(78,201,176,0.7);padding:5px 12px;border:1px dashed rgba(78,201,176,0.3);border-radius:20px;}
+  #input-panel{animation:fadeUp 0.4s ease both;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+  .field-label{display:block;font-size:9px;letter-spacing:0.2em;color:var(--dim);margin-bottom:8px;text-transform:uppercase;}
+  textarea{width:100%;height:370px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;line-height:1.75;resize:vertical;transition:border-color 0.2s;outline:none;}
+  textarea:focus{border-color:rgba(78,201,176,0.35);}
+  textarea.has-value{border-color:rgba(78,201,176,0.28);}
+  textarea::placeholder{color:rgba(255,255,255,0.13);}
+  .btn-analyze{width:100%;padding:15px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;border-radius:8px;color:#0c0c0e;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:0.14em;cursor:pointer;transition:all 0.2s;box-shadow:0 0 24px rgba(78,201,176,0.22);}
+  .btn-analyze:disabled{background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.16);box-shadow:none;cursor:not-allowed;}
+  .btn-analyze:not(:disabled):hover{box-shadow:0 0 36px rgba(78,201,176,0.35);transform:translateY(-1px);}
+  #result-panel{display:none;animation:fadeUp 0.45s ease both;}
+  .result-topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
+  .result-topbar-left{display:flex;align-items:center;gap:12px;}
+  .result-topbar-left>span{font-size:9px;letter-spacing:0.22em;color:var(--dim);}
+  .lang-pill{font-size:9px;letter-spacing:0.12em;padding:3px 10px;border-radius:10px;font-weight:700;}
+  .btn-back{background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--muted);padding:6px 14px;font-family:'JetBrains Mono',monospace;font-size:10px;cursor:pointer;letter-spacing:0.08em;transition:all 0.2s;}
+  .btn-back:hover{border-color:rgba(78,201,176,0.35);color:var(--accent);}
+  .score-card{display:grid;grid-template-columns:auto 1fr;gap:26px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:14px;}
+  .score-ring-wrap{display:flex;flex-direction:column;align-items:center;gap:6px;}
+  .ring-svg{transform:rotate(-90deg);}
+  .ring-bg{fill:none;stroke:rgba(255,255,255,0.05);stroke-width:7;}
+  .ring-fg{fill:none;stroke-width:7;stroke-linecap:round;transition:stroke-dashoffset 1.2s cubic-bezier(0.4,0,0.2,1),stroke 0.3s;}
+  .ring-inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .ring-score{font-size:26px;font-weight:700;line-height:1;}
+  .ring-denom{font-size:9px;color:var(--dim);letter-spacing:0.08em;}
+  .ring-grade{font-size:18px;font-weight:700;margin-top:3px;}
+  .ring-label{font-size:9px;letter-spacing:0.14em;color:var(--dim);}
+  .score-right{border-left:1px solid var(--border);padding-left:24px;}
+  .section-label{font-size:9px;letter-spacing:0.18em;color:var(--dim);margin-bottom:8px;}
+  .summary-text{font-size:12px;line-height:1.7;color:rgba(255,255,255,0.58);margin-bottom:20px;}
+  .dim-bar{margin-bottom:11px;}
+  .dim-bar-top{display:flex;justify-content:space-between;margin-bottom:4px;}
+  .dim-name{font-size:10px;color:rgba(255,255,255,0.45);letter-spacing:0.04em;}
+  .dim-score{font-size:10px;font-weight:700;}
+  .dim-track{height:3px;background:rgba(255,255,255,0.06);border-radius:2px;overflow:hidden;}
+  .dim-fill{height:100%;border-radius:2px;width:0%;transition:width 0.75s cubic-bezier(0.4,0,0.2,1);}
+  .tabs{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap;}
+  .tab-btn{padding:7px 14px;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--dim);font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.1em;cursor:pointer;transition:all 0.2s;}
+  .tab-btn.active{background:rgba(78,201,176,0.1);border-color:rgba(78,201,176,0.32);color:var(--accent);}
+  .tab-btn:hover:not(.active){border-color:rgba(255,255,255,0.14);color:var(--muted);}
+  .tab-panel{display:none;animation:fadeUp 0.3s ease both;}
+  .tab-panel.active{display:flex;flex-direction:column;gap:9px;}
+  .issue-card{border-radius:8px;padding:14px;border-left-width:3px;border-left-style:solid;}
+  .issue-header{display:flex;align-items:center;gap:8px;margin-bottom:7px;flex-wrap:wrap;}
+  .severity-badge{font-size:8px;letter-spacing:0.14em;font-weight:700;padding:2px 7px;border-radius:3px;white-space:nowrap;}
+  .issue-title{font-size:12px;font-weight:600;color:rgba(255,255,255,0.8);}
+  .issue-detail{font-size:11px;color:rgba(255,255,255,0.4);line-height:1.65;}
+  .strength-card{background:rgba(78,201,176,0.04);border:1px solid rgba(78,201,176,0.13);border-left:3px solid var(--accent);border-radius:8px;padding:12px 16px;display:flex;gap:10px;align-items:flex-start;}
+  .strength-check{color:var(--accent);flex-shrink:0;}
+  .strength-text{font-size:11px;color:rgba(255,255,255,0.58);line-height:1.65;}
+  .qw-card{background:rgba(240,192,64,0.04);border:1px solid rgba(240,192,64,0.13);border-left:3px solid #f0c040;border-radius:8px;padding:12px 16px;display:flex;gap:10px;align-items:flex-start;}
+  .qw-arrow{color:#f0c040;flex-shrink:0;}
+  .empty-state{text-align:center;padding:40px;color:var(--dim);font-size:13px;}
+  .site-footer{margin-top:48px;padding:16px 0;border-top:1px solid var(--border);text-align:center;font-size:10px;letter-spacing:0.1em;color:var(--dim);}
+  /* Status colour classes (dimension scores) */
+  .status-excellent{color:#4ec9b0;} .fill-excellent{background:#4ec9b0;box-shadow:0 0 6px #4ec9b077;}
+  .status-good     {color:#89d185;} .fill-good     {background:#89d185;box-shadow:0 0 6px #89d18577;}
+  .status-fair     {color:#f0c040;} .fill-fair     {background:#f0c040;box-shadow:0 0 6px #f0c04077;}
+  .status-poor     {color:#ff8c00;} .fill-poor     {background:#ff8c00;box-shadow:0 0 6px #ff8c0077;}
+  .status-critical {color:#ff3b3b;} .fill-critical {background:#ff3b3b;box-shadow:0 0 6px #ff3b3b77;}
+  /* Severity badge classes */
+  .badge-critical  {color:#ff3b3b;background:rgba(255,59,59,0.1);}
+  .badge-major     {color:#ff8c00;background:rgba(255,140,0,0.1);}
+  .badge-minor     {color:#f0c040;background:rgba(240,192,64,0.1);}
+  .badge-suggestion{color:#4ec9b0;background:rgba(78,201,176,0.1);}
+  /* Issue card severity variants */
+  .issue-card-critical  {background:rgba(255,59,59,0.08); border-color:rgba(255,59,59,0.16); border-left-color:#ff3b3b;}
+  .issue-card-major     {background:rgba(255,140,0,0.08);  border-color:rgba(255,140,0,0.16); border-left-color:#ff8c00;}
+  .issue-card-minor     {background:rgba(240,192,64,0.08); border-color:rgba(240,192,64,0.16);border-left-color:#f0c040;}
+  .issue-card-suggestion{background:rgba(78,201,176,0.08); border-color:rgba(78,201,176,0.16);border-left-color:#4ec9b0;}
+  /* Ring score colour classes (set via JS on the SVG and score text) */
+  .ring-good{color:#4ec9b0;stroke:#4ec9b0;} .ring-fair{color:#f0c040;stroke:#f0c040;} .ring-poor{color:#ff8c00;stroke:#ff8c00;} .ring-bad{color:#ff3b3b;stroke:#ff3b3b;}
+  .ring-wrap{position:relative;width:124px;height:124px;}
+  .ring-svg-el{position:absolute;transform:rotate(-90deg);}
+  /* Lang pill colour variants — replaces JS-injected style= */
+  .lang-pill-js    {background:#f7df1e;color:#1a1a1a;}
+  .lang-pill-python{background:#3572a5;color:#fff;}
+  .lang-pill-java  {background:#b07219;color:#fff;}
+  .lang-pill-html  {background:#e34c26;color:#fff;}
+  /* Inline colour overrides — replaces style="color:..." on spans */
+  .required-star{color:#ff3b3b;}
+  .optional-note{color:var(--dim);}
+  .badge-hidden{display:none;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.38}}
+  @keyframes scan{0%{transform:translateY(-5%)}100%{transform:translateY(105vh)}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}
+  @media(max-width:640px){
+    .grid2{grid-template-columns:1fr;}
+    .score-card{grid-template-columns:1fr;}
+    .score-right{border-left:none;border-top:1px solid var(--border);padding-left:0;padding-top:18px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="header">
+    <div class="header-badge">
+      <div class="dot" aria-hidden="true"></div>
+      <span class="badge-text">MULTI-LANGUAGE STATIC ANALYSIS &middot; 100% LOCAL</span>
+    </div>
+    <h1 class="logo">CodeReview<span>.</span></h1>
+    <p class="tagline">JavaScript &middot; TypeScript &middot; Python &middot; Java &middot; HTML &nbsp;&middot;&nbsp; No data leaves your browser</p>
+  </header>
+
+  <main>
+  <div id="input-panel">
+    <nav class="lang-row" aria-label="Language selection">
+      <span class="lang-label" id="lang-row-label">LANGUAGE:</span>
+      <button class="lang-btn active" id="lang-auto" aria-pressed="true"  aria-describedby="lang-row-label">AUTO-DETECT</button>
+      <button class="lang-btn"        id="lang-js"   aria-pressed="false" aria-describedby="lang-row-label">JavaScript / TS</button>
+      <button class="lang-btn"        id="lang-python" aria-pressed="false" aria-describedby="lang-row-label">Python</button>
+      <button class="lang-btn"        id="lang-java"   aria-pressed="false" aria-describedby="lang-row-label">Java</button>
+      <button class="lang-btn"        id="lang-html"   aria-pressed="false" aria-describedby="lang-row-label">HTML</button>
+      <span class="lang-detected badge-hidden" id="detected-badge" aria-live="polite"></span>
+    </nav>
+    <div class="grid2">
+      <div>
+        <label class="field-label" for="code-input">Source Code <span class="required-star" aria-label="required">*</span></label>
+        <textarea id="code-input" placeholder="Paste your code here..." aria-required="true" aria-label="Source code to analyze"></textarea>
+      </div>
+      <div>
+        <label class="field-label" for="docs-input">Documentation <span class="optional-note">(optional)</span></label>
+        <textarea id="docs-input" placeholder="Paste README, API docs, or any associated documentation..." aria-label="Optional documentation for the code"></textarea>
+      </div>
+    </div>
+    <button class="btn-analyze" id="analyze-btn" disabled aria-disabled="true">&#9654;&nbsp;&nbsp;ANALYZE CODE</button>
+  </div>
+
+  <section id="result-panel" aria-label="Analysis results">
+    <div class="result-topbar">
+      <div class="result-topbar-left">
+        <span>ANALYSIS COMPLETE</span>
+        <span class="lang-pill" id="result-lang-pill" aria-label="Detected language"></span>
+      </div>
+      <button class="btn-back" id="btn-back">&#8592; NEW REVIEW</button>
+    </div>
+    <div class="score-card" aria-label="Overall score">
+      <div class="score-ring-wrap">
+        <div class="ring-wrap" role="img" aria-labelledby="ring-score ring-grade" aria-describedby="summary-text">
+          <svg class="ring-svg ring-svg-el" width="124" height="124" aria-hidden="true">
+            <circle class="ring-bg" cx="62" cy="62" r="52"/>
+            <circle class="ring-fg" id="ring-fg" cx="62" cy="62" r="52"/>
+          </svg>
+          <div class="ring-inner">
+            <span class="ring-score" id="ring-score">0</span>
+            <span class="ring-denom" aria-hidden="true">/100</span>
+            <span class="ring-grade" id="ring-grade">-</span>
+          </div>
+        </div>
+        <span class="ring-label" aria-hidden="true">OVERALL SCORE</span>
+      </div>
+      <div class="score-right">
+        <div class="section-label" id="summary-label">SUMMARY</div>
+        <div class="summary-text" id="summary-text" aria-labelledby="summary-label"></div>
+        <div class="section-label" id="dimensions-label">DIMENSIONS</div>
+        <div id="dimensions" aria-labelledby="dimensions-label"></div>
+      </div>
+    </div>
+    <div class="tabs" role="tablist" aria-label="Results breakdown">
+      <button class="tab-btn active" id="tab-issues"    role="tab" aria-selected="true"  aria-controls="panel-issues">ISSUES (<span id="issues-count">0</span>)</button>
+      <button class="tab-btn"        id="tab-strengths" role="tab" aria-selected="false" aria-controls="panel-strengths">STRENGTHS (<span id="strengths-count">0</span>)</button>
+      <button class="tab-btn"        id="tab-quickwins" role="tab" aria-selected="false" aria-controls="panel-quickwins">QUICK WINS (<span id="quickwins-count">0</span>)</button>
+    </div>
+    <div class="tab-panel active" id="panel-issues"    role="tabpanel" aria-labelledby="tab-issues"></div>
+    <div class="tab-panel"        id="panel-strengths" role="tabpanel" aria-labelledby="tab-strengths"></div>
+    <div class="tab-panel"        id="panel-quickwins" role="tabpanel" aria-labelledby="tab-quickwins"></div>
+  </section>
+  </main>
+  <footer class="site-footer">
+    <span>CodeReview. &mdash; 100% local &middot; no data leaves your browser</span>
+  </footer>
+</div>
+<script>
+// ── Shared utils ──────────────────────────────────────────────────────────
+const clamp=v=>Math.max(0,Math.min(100,Math.round(v)));
+const scoreStatus=s=>s>=80?'excellent':s>=65?'good':s>=50?'fair':s>=35?'poor':'critical';
+const statusColors={excellent:'#4ec9b0',good:'#89d185',fair:'#f0c040',poor:'#ff8c00',critical:'#ff3b3b'};
+const severityMeta={
+  critical:  {color:'#ff3b3b',bg:'rgba(255,59,59,0.08)',  label:'CRITICAL',   icon:'&#9940;'},
+  major:     {color:'#ff8c00',bg:'rgba(255,140,0,0.08)',  label:'MAJOR',      icon:'&#9888;'},
+  minor:     {color:'#f0c040',bg:'rgba(240,192,64,0.08)', label:'MINOR',      icon:'&#9889;'},
+  suggestion:{color:'#4ec9b0',bg:'rgba(78,201,176,0.08)',label:'SUGGESTION', icon:'&#128161;'},
+};
+const langMeta={
+  js:    {label:'JavaScript / TS',color:'#f7df1e',textColor:'#1a1a1a'},
+  python:{label:'Python',         color:'#3572a5',textColor:'#fff'},
+  java:  {label:'Java',           color:'#b07219',textColor:'#fff'},
+  html:  {label:'HTML',           color:'#e34c26',textColor:'#fff'},
+};
+function cm(code,re){return(code.match(re)||[]).length;}
+function finalScore(dims,weights){return clamp(dims.reduce((s,d,i)=>s+d.score*weights[i],0));}
+function grade(n){return n>=93?'A+':n>=88?'A':n>=83?'A-':n>=78?'B+':n>=73?'B':n>=68?'B-':n>=63?'C+':n>=58?'C':n>=53?'C-':n>=45?'D':'F';}
+function buildSummary(lines,lang,dims,issues,strengths){
+  const crit=issues.filter(i=>i.severity==='critical').length;
+  const maj=issues.filter(i=>i.severity==='major').length;
+  return `${lines} lines of ${lang} analyzed across ${dims.length} dimensions. `
+    +(crit?`${crit} critical issue${crit>1?'s':''} require immediate attention. `:'')
+    +(maj?`${maj} major issue${maj>1?'s':''} should be addressed. `:'')
+    +(strengths.length>0?`${strengths.length} positive practices identified.`:'Significant improvements recommended.');
+}
+
+// ── Language detection ────────────────────────────────────────────────────
+function detectLanguage(code){
+  const s=code.slice(0,4000);
+  const sc={js:0,python:0,java:0,html:0};
+  if(/<!DOCTYPE\s+html/i.test(s))sc.html+=40;
+  if(/<html[\s>]/i.test(s))sc.html+=20;
+  if(/<\/?(div|span|p|a|img|head|body|script|style|link|meta|input|form|table|ul|li|h[1-6])\b/i.test(s))sc.html+=15;
+  if(/^\s*def\s+\w+\s*\(/m.test(s))sc.python+=25;
+  if(/^\s*import\s+\w+|^\s*from\s+\w+\s+import/m.test(s))sc.python+=20;
+  if(/^\s*class\s+\w+.*:/m.test(s))sc.python+=15;
+  if(/\bself\b/.test(s))sc.python+=15;
+  if(/"""|'''/.test(s))sc.python+=10;
+  if(/\bprint\s*\(/.test(s))sc.python+=8;
+  if(/\bpublic\s+(class|interface|enum|abstract)\b/.test(s))sc.java+=30;
+  if(/\bSystem\.out\.print/.test(s))sc.java+=15;
+  if(/@Override|@Autowired|@Test|@Bean|@Component/.test(s))sc.java+=20;
+  if(/import\s+java\./.test(s))sc.java+=25;
+  if(/\bthrows\s+\w+/.test(s))sc.java+=10;
+  if(/\b(const|let|var)\s+\w+\s*=/.test(s))sc.js+=20;
+  if(/=>\s*[\{(]/.test(s))sc.js+=15;
+  if(/\bconsole\.(log|warn|error)/.test(s))sc.js+=10;
+  if(/\bfunction\s+\w+\s*\(/.test(s))sc.js+=10;
+  if(/\b(interface|type)\s+\w+/.test(s))sc.js+=10;
+  if(/document\.|window\.|querySelector/.test(s))sc.js+=10;
+  if(sc.html<15)sc.html=0;
+  return Object.entries(sc).sort((a,b)=>b[1]-a[1])[0][0];
+}
+
+// ── JavaScript / TypeScript ───────────────────────────────────────────────
+function analyzeJS(code,docs){
+  const lines=code.split('\n'),totalLines=lines.length;
+  const nonEmpty=lines.filter(l=>l.trim());
+  const issues=[],strengths=[];
+
+  // Commenting
+  const cLines=lines.filter(l=>/^\s*(\/\/|\/\*|\*)/.test(l));
+  const cRatio=cLines.length/Math.max(nonEmpty.length,1);
+  const hasJsdoc=/\/\*\*[\s\S]*?\*\//.test(code);
+  const todos=cm(code,/\/\/\s*(TODO|FIXME|HACK|XXX)/gi);
+  let commentScore=50;
+  if(cRatio>=0.2){commentScore+=25;strengths.push(`Good comment density (${Math.round(cRatio*100)}% of lines).`);}
+  else if(cRatio>=0.1){commentScore+=8;issues.push({severity:'minor',title:'Low comment density',detail:`${Math.round(cRatio*100)}% comment ratio. Aim for 15-20%. Focus on explaining the 'why'.`});}
+  else{commentScore-=15;issues.push({severity:'major',title:'Very sparse comments',detail:`Only ${Math.round(cRatio*100)}% comments. Document complex logic, function intent, and non-obvious decisions.`});}
+  if(hasJsdoc){commentScore+=15;strengths.push('JSDoc block comments detected — great for IDE tooling.');}
+  if(todos>0){commentScore-=5*Math.min(todos,3);issues.push({severity:'minor',title:`${todos} unresolved TODO/FIXME`,detail:'Resolve these or move to an issue tracker.'});}
+  if(docs&&docs.trim().length>100){commentScore+=10;strengths.push('External documentation provided.');}
+
+  // Maintainability
+  const longFuncs=(code.match(/\{[^{}]{900,}\}/g)||[]).length;
+  const indLevels=nonEmpty.map(l=>{const m=l.match(/^(\s*)/);return m?m[1].replace(/\t/g,'  ').length/2:0;});
+  const nestDepth=Math.max(...indLevels);
+  const magicNums=/(?<![a-zA-Z_"'`])((?!0\b|1\b)[2-9]\d{2,})[^a-zA-Z_"'`.]/.test(code);
+  const funcCount=cm(code,/function\s+\w+\s*\(|const\s+\w+\s*=\s*(?:async\s*)?\(/g);
+  let maintainScore=60;
+  if(longFuncs>0){maintainScore-=10*Math.min(longFuncs,4);issues.push({severity:longFuncs>2?'major':'minor',title:`${longFuncs} overly long function body${longFuncs>1?'s':''}`,detail:'Functions over ~40 lines are hard to read and test. Split into smaller single-responsibility functions.'});}
+  else if(funcCount>0){maintainScore+=15;strengths.push('Functions appear appropriately sized.');}
+  if(nestDepth>6){maintainScore-=15;issues.push({severity:'major',title:`Deep nesting (${nestDepth} levels)`,detail:'Use early returns, guard clauses, or extract inner blocks into named functions.'});}
+  else if(nestDepth>4){maintainScore-=5;issues.push({severity:'minor',title:`Moderate nesting (${nestDepth} levels)`,detail:'Consider flattening with early returns or extracted helpers.'});}
+  else if(nestDepth>0){maintainScore+=10;strengths.push(`Shallow nesting (max ${nestDepth} levels).`);}
+  if(magicNums){maintainScore-=10;issues.push({severity:'minor',title:'Magic numbers present',detail:'Replace unexplained numeric literals with named constants.'});}
+
+  // Style
+  const singleCharVars=(code.match(/\b(?:var|let|const)\s+([a-z])\b/g)||[]).filter(m=>/\b(?:var|let|const)\s+[^ijk]\b/.test(m)).length;
+  const goodNaming=cm(code,/\b(?:get|set|handle|create|update|delete|fetch|parse|validate|format|render|build|init|load|save|is[A-Z]|has[A-Z])\w+/g);
+  const mixedIndent=lines.some(l=>/^\t/.test(l))&&lines.some(l=>/^ {2}/.test(l));
+  const longLines=lines.filter(l=>l.length>120).length;
+  let styleScore=60;
+  if(singleCharVars>2){styleScore-=12;issues.push({severity:'minor',title:`${singleCharVars} single-character variable names`,detail:"Short names like 'x','a' hurt readability. Use descriptive names (except loop counters i,j,k)."});}
+  if(goodNaming>3){styleScore+=20;strengths.push(`Semantic naming patterns (get/set/handle/validate) — ${goodNaming} instances found.`);}
+  if(mixedIndent){styleScore-=10;issues.push({severity:'minor',title:'Mixed indentation (tabs + spaces)',detail:'Pick one style and enforce with Prettier or ESLint.'});}
+  else{styleScore+=10;strengths.push('Consistent indentation throughout.');}
+  if(longLines>5){styleScore-=8;issues.push({severity:'minor',title:`${longLines} lines exceed 120 characters`,detail:'Wrap long lines at 80-120 characters for readability.'});}
+
+  // Error handling
+  const tryCatch=cm(code,/try\s*\{/g);
+  const emptyCatch=(code.match(/catch\s*\([^)]*\)\s*\{\s*\}/g)||[]).length;
+  const promiseCount=cm(code,/new Promise|\.then\s*\(|\.catch\s*\(|async\s+function|\bawait\s+/g);
+  const hasCatchH=/\.catch\s*\(/.test(code);
+  const unhandledAsync=promiseCount>0&&tryCatch===0&&!hasCatchH;
+  let errorScore=50;
+  if(tryCatch>0){errorScore+=20;strengths.push(`${tryCatch} try/catch block${tryCatch>1?'s':''} present.`);}
+  if(emptyCatch>0){errorScore-=20;issues.push({severity:'major',title:`${emptyCatch} empty catch block${emptyCatch>1?'s':''}`,detail:'Swallowing errors makes debugging impossible. Log them at minimum.'});}
+  if(unhandledAsync){errorScore-=15;issues.push({severity:'major',title:'Async code without error handling',detail:'Add .catch() or try/catch around async operations. Unhandled rejections crash Node.js.'});}
+  if(tryCatch===0&&!unhandledAsync&&totalLines>30){errorScore-=8;issues.push({severity:'minor',title:'No explicit error handling',detail:'Wrap risky operations (I/O, parsing, network) in try/catch.'});}
+
+  // Extensibility
+  const hasClasses=/\bclass\s+\w+/.test(code);
+  const hasInterfaces=/\binterface\s+\w+|\btype\s+\w+\s*=\s*\{/.test(code);
+  const hasModExports=/\bexport\s+(?:default\s+)?|\bmodule\.exports/.test(code);
+  const hardUrls=cm(code,/https?:\/\/[^\s"'`<>)]+/g);
+  const hasConsts=/\bconst\s+[A-Z][A-Z0-9_]{2,}\s*=/.test(code);
+  let extendScore=50;
+  if(hasClasses){extendScore+=15;strengths.push('Class-based structure — promotes encapsulation.');}
+  if(hasInterfaces){extendScore+=10;strengths.push('TypeScript interfaces/types — contract enforcement.');}
+  if(hasModExports){extendScore+=10;strengths.push('Module exports — designed for reuse.');}
+  if(hardUrls>0){extendScore-=10;issues.push({severity:'minor',title:`${hardUrls} hardcoded URL${hardUrls>1?'s':''}`,detail:'Move URLs to config or environment variables.'});}
+  if(hasConsts){extendScore+=10;strengths.push('Named constants (SCREAMING_SNAKE_CASE) found.');}
+
+  // Security
+  const evalCount=cm(code,/\beval\s*\(/g);
+  const innerHtml=cm(code,/\.innerHTML\s*=/g);
+  const dangerHtml=cm(code,/dangerouslySetInnerHTML/g);
+  const sqlInject=/['"`]\s*\+\s*(?:req\.|params\.|query\.|body\.)/.test(code);
+  const hardSecrets=/(?:password|api_?key|secret|token)\s*=\s*["'][^"']{4,}["']/i.test(code);
+  const httpUrls=cm(code,/http:\/\/(?!localhost|127\.)/g);
+  let securityScore=78;
+  if(evalCount>0){securityScore-=30;issues.push({severity:'critical',title:`eval() used ${evalCount} time${evalCount>1?'s':''}`,detail:'eval() is a critical XSS vector. Remove it — use JSON.parse() or refactor entirely.'});}
+  if(innerHtml>0){securityScore-=15;issues.push({severity:'major',title:`${innerHtml} innerHTML assignment${innerHtml>1?'s':''}`,detail:'innerHTML risks XSS. Use textContent or sanitize with DOMPurify.'});}
+  if(dangerHtml>0){securityScore-=10;issues.push({severity:'major',title:'dangerouslySetInnerHTML used',detail:'Only use with DOMPurify sanitization in React.'});}
+  if(sqlInject){securityScore-=30;issues.push({severity:'critical',title:'SQL injection risk',detail:'Never concatenate user input into SQL. Use parameterized queries or an ORM.'});}
+  if(hardSecrets){securityScore-=35;issues.push({severity:'critical',title:'Possible hardcoded credentials',detail:'Move secrets to environment variables. Rotate any exposed credentials immediately.'});}
+  if(httpUrls>0){securityScore-=8;issues.push({severity:'minor',title:`${httpUrls} non-HTTPS URL${httpUrls>1?'s':''}`,detail:'Use HTTPS for all external resources.'});}
+  if(!evalCount&&!innerHtml&&!sqlInject&&!hardSecrets){strengths.push('No obvious security anti-patterns detected.');}
+
+  // Performance
+  const nestedLoops=/for\s*\([^)]*\)[^{]*\{[^}]*for\s*\(/.test(code);
+  const domInLoop=/for\s*\([\s\S]{0,300}(?:querySelector|getElementById|getElementsBy|document\.)/.test(code);
+  const syncOps=cm(code,/\bfs\.readFileSync|\bfs\.writeFileSync|\bexecSync\b/g);
+  const hasMemo=/\buseMemo\b|\buseCallback\b|\bmemo\s*\(|\bmemoize\b/i.test(code);
+  const consoleLogs=cm(code,/\bconsole\.log\s*\(/g);
+  let perfScore=72;
+  if(nestedLoops){perfScore-=15;issues.push({severity:'minor',title:'Nested loops detected',detail:'O(n2) complexity. Pre-index with Map/Set to achieve O(n).'});}
+  if(domInLoop){perfScore-=20;issues.push({severity:'major',title:'DOM query inside loop',detail:'Cache element references outside the loop to prevent layout thrashing.'});}
+  if(syncOps>0){perfScore-=15;issues.push({severity:'major',title:`${syncOps} synchronous I/O operation${syncOps>1?'s':''}`,detail:'Sync I/O blocks the event loop. Replace with async alternatives.'});}
+  if(hasMemo){perfScore+=15;strengths.push('Memoization/caching patterns detected.');}
+  if(consoleLogs>5){perfScore-=5;issues.push({severity:'suggestion',title:`${consoleLogs} console.log statements`,detail:'Remove debug logs before shipping, or use a configurable logging library.'});}
+
+  // Testability
+  const hasTests=/\bdescribe\s*\(|\bit\s*\(|\btest\s*\(|\bexpect\s*\(|\bassert\./.test(code);
+  const hasMocks=/\bjest\.mock\b|\bsinon\.\b|\.mock\s*\(|\.stub\s*\(/.test(code);
+  const globalRefs=cm(code,/\b(?:document|window|process|global)\./g);
+  let testScore=40;
+  if(hasTests){testScore+=35;strengths.push('Test code detected — regression protection in place.');}
+  else{issues.push({severity:'suggestion',title:'No tests found',detail:'Add unit tests with Jest, Vitest, or Mocha for core logic.'});}
+  if(hasMocks){testScore+=15;strengths.push('Test mocks/stubs — dependencies are isolated.');}
+  if(globalRefs>6){testScore-=10;issues.push({severity:'suggestion',title:'High global-scope coupling',detail:`${globalRefs} global references. Consider dependency injection to improve testability.`});}
+
+  const dims=[
+    {name:'Commenting & Docs',score:clamp(commentScore), status:scoreStatus(commentScore)},
+    {name:'Maintainability',  score:clamp(maintainScore),status:scoreStatus(maintainScore)},
+    {name:'Code Style',       score:clamp(styleScore),   status:scoreStatus(styleScore)},
+    {name:'Error Handling',   score:clamp(errorScore),   status:scoreStatus(errorScore)},
+    {name:'Extensibility',    score:clamp(extendScore),  status:scoreStatus(extendScore)},
+    {name:'Security',         score:clamp(securityScore),status:scoreStatus(securityScore)},
+    {name:'Performance',      score:clamp(perfScore),    status:scoreStatus(perfScore)},
+    {name:'Testability',      score:clamp(testScore),    status:scoreStatus(testScore)},
+  ];
+  const weights=[0.15,0.20,0.10,0.15,0.10,0.15,0.10,0.05];
+  const overall=finalScore(dims,weights);
+  const qw=[
+    ...(todos>0?[`Resolve the ${todos} TODO/FIXME comment${todos>1?'s':''}`]:[]),
+    ...(emptyCatch>0?['Add logging to empty catch blocks']:[]),
+    ...(magicNums?['Extract magic numbers into named constants']:[]),
+    ...(!hasTests&&totalLines>20?['Add at least one unit test for core logic']:[]),
+    ...(hardUrls>0?['Move hardcoded URLs to config/env']:[]),
+    ...(!hasJsdoc&&funcCount>2?['Add JSDoc to exported functions']:[]),
+    ...(consoleLogs>5?['Remove debug console.log statements']:[]),
+  ].slice(0,6);
+  return {overallScore:overall,grade:grade(overall),summary:buildSummary(totalLines,'JavaScript/TypeScript',dims,issues,strengths),dimensions:dims,strengths,issues,quickWins:qw};
+}
+
+// ── Python ────────────────────────────────────────────────────────────────
+function analyzePython(code,docs){
+  const lines=code.split('\n'),totalLines=lines.length;
+  const nonEmpty=lines.filter(l=>l.trim());
+  const issues=[],strengths=[];
+
+  const cLines=lines.filter(l=>/^\s*#/.test(l));
+  const cRatio=cLines.length/Math.max(nonEmpty.length,1);
+  const hasDocstrings=/"""[\s\S]*?"""|'''[\s\S]*?'''/.test(code);
+  const hasFuncDocs=/def\s+\w+[^:]+:\s*\n\s*("""|\'\'\')/.test(code);
+  const todos=cm(code,/#\s*(TODO|FIXME|HACK|XXX)/gi);
+  let commentScore=50;
+  if(cRatio>=0.15){commentScore+=20;strengths.push(`Good inline comment density (${Math.round(cRatio*100)}%).`);}
+  else if(cRatio>=0.05){commentScore+=5;issues.push({severity:'minor',title:'Low comment density',detail:`${Math.round(cRatio*100)}% inline comments. Supplement with docstrings on all public functions.`});}
+  else{commentScore-=15;issues.push({severity:'major',title:'Very sparse comments',detail:'Document module purpose, function intent, and complex logic with # comments and docstrings.'});}
+  if(hasDocstrings){commentScore+=20;strengths.push('Docstrings found — great for pydoc, Sphinx, and IDE tooling.');}
+  else{commentScore-=10;issues.push({severity:'minor',title:'No docstrings found',detail:'Add triple-quoted docstrings to modules, classes, and public functions (Google, NumPy, or reST style).'});}
+  if(hasFuncDocs){commentScore+=5;strengths.push('Function-level docstrings detected.');}
+  if(todos>0){commentScore-=5;issues.push({severity:'minor',title:`${todos} unresolved TODO/FIXME`,detail:'Move stale TODOs to an issue tracker.'});}
+  if(docs&&docs.trim().length>100){commentScore+=8;strengths.push('External documentation provided.');}
+
+  const funcDefs=lines.filter(l=>/^\s*def\s+\w+/.test(l));
+  const longLines=lines.filter(l=>l.length>79).length;
+  const indLevels=nonEmpty.map(l=>{const m=l.match(/^(\s*)/);return m?m[1].replace(/\t/g,'    ').length/4:0;});
+  const nestDepth=Math.max(...indLevels);
+  const magicNums=/(?<![a-zA-Z_"'`])((?!0\b|1\b)[2-9]\d{2,})[^a-zA-Z_"'`]/.test(code);
+  const usesTabs=lines.some(l=>/^\t/.test(l));
+  let maintainScore=60;
+  if(longLines>5){maintainScore-=8;issues.push({severity:'minor',title:`${longLines} lines exceed PEP 8's 79-char limit`,detail:"PEP 8 recommends max 79 chars. Use backslash or parentheses for line continuation."});}
+  if(nestDepth>5){maintainScore-=15;issues.push({severity:'major',title:`Deep nesting (${nestDepth} levels)`,detail:'Flatten with early returns, helper functions, or comprehensions.'});}
+  else if(nestDepth>3){maintainScore-=5;issues.push({severity:'minor',title:`Moderate nesting (${nestDepth} levels)`,detail:'Consider early returns or extracted helpers to reduce depth.'});}
+  else{maintainScore+=10;strengths.push(`Shallow nesting (max ${nestDepth} levels) — Pythonic structure.`);}
+  if(magicNums){maintainScore-=10;issues.push({severity:'minor',title:'Magic numbers in code',detail:'Extract numeric literals to named module-level constants.'});}
+  if(usesTabs){maintainScore-=12;issues.push({severity:'major',title:'Tab indentation used',detail:'PEP 8 mandates 4-space indentation. Tabs cause IndentationError in Python 3 when mixed with spaces.'});}
+  else{maintainScore+=8;strengths.push('Consistent 4-space indentation — PEP 8 compliant.');}
+  if(funcDefs.length>0){strengths.push(`${funcDefs.length} function definition${funcDefs.length>1?'s':''} found.`);}
+
+  const badFuncNames=(code.match(/def\s+([A-Z][a-zA-Z]*)\s*\(/g)||[]).length;
+  const hasTypeHints=/def\s+\w+\s*\([^)]*:\s*\w+|\)\s*->\s*\w+/.test(code);
+  const usesComps=/\[.+\s+for\s+\w+\s+in\s+/.test(code);
+  const hasFStrings=/f["'].*\{/.test(code);
+  const oldFormat=/["'].*%\s*(?:\(|\w)/.test(code);
+  let styleScore=60;
+  if(badFuncNames>0){styleScore-=10;issues.push({severity:'minor',title:`${badFuncNames} function${badFuncNames>1?'s':''} not in snake_case`,detail:'PEP 8 requires functions/variables in snake_case, classes in PascalCase.'});}
+  if(hasTypeHints){styleScore+=20;strengths.push('Type hints present — improves readability, IDE support, and mypy checking.');}
+  else{issues.push({severity:'suggestion',title:'No type hints found',detail:'Add PEP 484 type hints to function signatures to enable static analysis with mypy.'});}
+  if(usesComps){styleScore+=10;strengths.push('List comprehensions used — idiomatic Python.');}
+  if(hasFStrings){styleScore+=8;strengths.push('f-strings used — the modern readable way to format strings (Python 3.6+).');}
+  if(oldFormat){styleScore-=5;issues.push({severity:'suggestion',title:'Old-style % string formatting',detail:'Replace %-style formatting with f-strings or str.format() for clarity.'});}
+
+  const tryCount=cm(code,/\btry\s*:/g);
+  const bareExcept=(code.match(/\bexcept\s*:/g)||[]).length;
+  const exceptPass=(code.match(/except[^:]*:\s*\n\s*pass/g)||[]).length;
+  const broadExcept=cm(code,/except\s+Exception\s*(?:as\s+\w+)?\s*:/g);
+  let errorScore=50;
+  if(tryCount>0){errorScore+=20;strengths.push(`${tryCount} try/except block${tryCount>1?'s':''} present.`);}
+  if(bareExcept>0){errorScore-=25;issues.push({severity:'critical',title:`${bareExcept} bare except: clause${bareExcept>1?'s':''}`,detail:'Bare except catches KeyboardInterrupt and SystemExit. Always specify the exception type.'});}
+  if(exceptPass>0){errorScore-=20;issues.push({severity:'major',title:`${exceptPass} silent except...pass block${exceptPass>1?'s':''}`,detail:'Silent exceptions hide bugs. Log with logging.exception() at minimum.'});}
+  if(broadExcept>0){errorScore-=10;issues.push({severity:'minor',title:`${broadExcept} broad except Exception`,detail:'Catch the most specific exception type you expect to handle.'});}
+  if(tryCount===0&&totalLines>30){errorScore-=10;issues.push({severity:'minor',title:'No exception handling found',detail:'Add try/except around risky operations. Use the logging module, not print.'});}
+
+  const hasClasses=cm(code,/^class\s+\w+/gm);
+  const hasInherit=/class\s+\w+\s*\(\w+\)/.test(code);
+  const hasAbstract=/@abstractmethod/.test(code);
+  const hasDecos=cm(code,/@\w+/g);
+  const hardUrls=cm(code,/https?:\/\/[^\s"'`]+/g);
+  let extendScore=50;
+  if(hasClasses>0){extendScore+=15;strengths.push(`${hasClasses} class definition${hasClasses>1?'s':''} — encapsulation and reuse.`);}
+  if(hasInherit){extendScore+=10;strengths.push('Inheritance used — OOP extensibility patterns.');}
+  if(hasAbstract){extendScore+=10;strengths.push('Abstract methods — interface contracts enforced on subclasses.');}
+  if(hasDecos>1){extendScore+=8;strengths.push(`${hasDecos} decorators — Pythonic behaviour extension.`);}
+  if(hardUrls>0){extendScore-=10;issues.push({severity:'minor',title:`${hardUrls} hardcoded URL${hardUrls>1?'s':''}`,detail:'Use os.environ or a config file for environment flexibility.'});}
+
+  const evalCount=cm(code,/\beval\s*\(/g);
+  const execCount=cm(code,/\bexec\s*\(/g);
+  const osSystem=cm(code,/\bos\.system\s*\(/g);
+  const shellTrue=/subprocess\.[a-z_]+\s*\([^)]*shell\s*=\s*True/.test(code);
+  const pickleLoad=/\bpickle\.loads?\s*\(/.test(code);
+  const sqlFmt=/(?:execute|query)\s*\(\s*["'].*%[sd].*["']\s*%|f["'].*SELECT.*\{/.test(code);
+  const hardSecrets=/(?:password|passwd|api_?key|secret|token)\s*=\s*["'][^"']{4,}["']/i.test(code);
+  let securityScore=75;
+  if(evalCount>0){securityScore-=30;issues.push({severity:'critical',title:`eval() called ${evalCount} time${evalCount>1?'s':''}`,detail:'eval() executes arbitrary code. Use ast.literal_eval() for safe parsing or redesign the logic.'});}
+  if(execCount>0){securityScore-=25;issues.push({severity:'critical',title:`exec() called ${execCount} time${execCount>1?'s':''}`,detail:'exec() is as dangerous as eval(). Refactor to explicit logic.'});}
+  if(osSystem>0){securityScore-=20;issues.push({severity:'major',title:`os.system() called ${osSystem} time${osSystem>1?'s':''}`,detail:'Shell injection risk. Use subprocess.run() with a list of args and shell=False.'});}
+  if(shellTrue){securityScore-=20;issues.push({severity:'major',title:'subprocess with shell=True',detail:'shell=True opens shell injection vulnerabilities. Pass args as a list with shell=False.'});}
+  if(pickleLoad){securityScore-=20;issues.push({severity:'major',title:'pickle.load/loads detected',detail:'Deserialising untrusted pickle data allows arbitrary code execution. Use JSON instead.'});}
+  if(sqlFmt){securityScore-=30;issues.push({severity:'critical',title:'SQL injection via string formatting',detail:'Never format SQL with % or f-strings. Use parameterised queries with your DB driver.'});}
+  if(hardSecrets){securityScore-=35;issues.push({severity:'critical',title:'Possible hardcoded credentials',detail:'Move secrets to environment variables (os.environ) or python-dotenv. Rotate exposed credentials.'});}
+  if(!evalCount&&!execCount&&!osSystem&&!shellTrue&&!sqlFmt&&!hardSecrets){strengths.push('No obvious security anti-patterns (eval, exec, shell injection, SQL formatting, hardcoded secrets).');}
+
+  const strConcatLoop=/for\s+\w+\s+in\s+[\s\S]{0,100}\w+\s*\+=\s*["']/.test(code);
+  const nestedLoops=/for\s+\w+\s+in\s+[^:]+:\s*\n\s+(?:.*\n\s+)*\s*for\s+\w+\s+in/.test(code);
+  const globalKw=cm(code,/\bglobal\s+\w+/g);
+  const usesNumpy=/import\s+numpy|from\s+numpy/.test(code);
+  const usesGens=/\byield\b|\(.*for\s+\w+\s+in/.test(code);
+  let perfScore=68;
+  if(strConcatLoop){perfScore-=20;issues.push({severity:'major',title:'String concatenation inside loop',detail:"Use a list and ''.join(parts) instead of += in a loop — significantly faster."});}
+  if(nestedLoops){perfScore-=12;issues.push({severity:'minor',title:'Nested loops detected',detail:'O(n2) complexity. Consider dict lookups, NumPy vectorisation, or algorithm restructuring.'});}
+  if(globalKw>2){perfScore-=10;issues.push({severity:'minor',title:`${globalKw} global variable uses`,detail:'Excessive global state is hard to test. Pass values as parameters or use class attributes.'});}
+  if(usesNumpy){perfScore+=15;strengths.push('NumPy used — vectorised operations are significantly faster than Python loops.');}
+  if(usesGens){perfScore+=10;strengths.push('Generators used — memory-efficient iteration.');}
+
+  const hasUnittest=/import\s+unittest|\bTestCase\b/.test(code);
+  const hasPytest=/import\s+pytest|\bpytest\b|def\s+test_/.test(code);
+  const hasMocks=/from\s+unittest\.mock|import\s+mock|\bMagicMock\b|\bpatch\b/.test(code);
+  const hasAsserts=cm(code,/\bassert\s+/g);
+  let testScore=40;
+  if(hasUnittest||hasPytest){testScore+=35;strengths.push(`${hasUnittest?'unittest':'pytest'} detected — regression protection in place.`);}
+  else{issues.push({severity:'suggestion',title:'No test framework found',detail:'Add pytest tests in test_*.py files. pytest is the de-facto Python testing tool.'});}
+  if(hasMocks){testScore+=15;strengths.push('unittest.mock used — external dependencies isolated in tests.');}
+  if(hasAsserts>3){testScore+=5;strengths.push(`${hasAsserts} assert statements — inline contract checking.`);}
+
+  const dims=[
+    {name:'Commenting & Docs', score:clamp(commentScore), status:scoreStatus(commentScore)},
+    {name:'Maintainability',   score:clamp(maintainScore),status:scoreStatus(maintainScore)},
+    {name:'Code Style (PEP8)', score:clamp(styleScore),   status:scoreStatus(styleScore)},
+    {name:'Error Handling',    score:clamp(errorScore),   status:scoreStatus(errorScore)},
+    {name:'Extensibility',     score:clamp(extendScore),  status:scoreStatus(extendScore)},
+    {name:'Security',          score:clamp(securityScore),status:scoreStatus(securityScore)},
+    {name:'Performance',       score:clamp(perfScore),    status:scoreStatus(perfScore)},
+    {name:'Testability',       score:clamp(testScore),    status:scoreStatus(testScore)},
+  ];
+  const weights=[0.15,0.20,0.10,0.15,0.10,0.15,0.10,0.05];
+  const overall=finalScore(dims,weights);
+  const qw=[
+    ...(bareExcept>0?['Replace bare except: with specific exception types']:[]),
+    ...(exceptPass>0?['Add logging to silent except...pass blocks']:[]),
+    ...(!hasDocstrings?['Add docstrings to modules and public functions']:[]),
+    ...(usesTabs?['Convert tab indentation to 4 spaces (PEP 8)']:[]),
+    ...(!hasTypeHints?['Add type hints to function signatures']:[]),
+    ...(hardSecrets?['Move credentials to environment variables immediately']:[]),
+    ...(strConcatLoop?["Replace string += in loop with list + ''.join()"]:[]),
+  ].slice(0,6);
+  return {overallScore:overall,grade:grade(overall),summary:buildSummary(totalLines,'Python',dims,issues,strengths),dimensions:dims,strengths,issues,quickWins:qw};
+}
+
+// ── Java ──────────────────────────────────────────────────────────────────
+function analyzeJava(code,docs){
+  const lines=code.split('\n'),totalLines=lines.length;
+  const nonEmpty=lines.filter(l=>l.trim());
+  const issues=[],strengths=[];
+
+  const cLines=lines.filter(l=>/^\s*(\/\/|\/\*|\*)/.test(l));
+  const cRatio=cLines.length/Math.max(nonEmpty.length,1);
+  const hasJavadoc=/\/\*\*[\s\S]*?\*\//.test(code);
+  const hasMethodDoc=/\/\*\*[\s\S]*?\*\/\s*(?:public|private|protected)/.test(code);
+  const todos=cm(code,/\/\/\s*(TODO|FIXME|HACK|XXX)/gi);
+  let commentScore=50;
+  if(cRatio>=0.2){commentScore+=25;strengths.push(`Good comment density (${Math.round(cRatio*100)}% of lines).`);}
+  else if(cRatio>=0.1){commentScore+=8;issues.push({severity:'minor',title:'Low comment density',detail:`Only ${Math.round(cRatio*100)}% of lines are comments. Aim for 15-20%, especially on public APIs.`});}
+  else{commentScore-=15;issues.push({severity:'major',title:'Sparse comments',detail:'Document class purpose, method contracts, and non-obvious logic.'});}
+  if(hasJavadoc){commentScore+=15;strengths.push('Javadoc comments present — API documentation can be generated.');}
+  if(hasMethodDoc){commentScore+=5;strengths.push('Public method Javadoc detected — API contracts are documented.');}
+  if(todos>0){commentScore-=5;issues.push({severity:'minor',title:`${todos} unresolved TODO/FIXME`,detail:'Move to your issue tracker (Jira, GitHub Issues).'});}
+  if(docs&&docs.trim().length>100){commentScore+=8;strengths.push('External documentation provided.');}
+
+  const longMethods=(code.match(/\{[^{}]{600,}\}/g)||[]).length;
+  const indLevels=nonEmpty.map(l=>{const m=l.match(/^(\s*)/);return m?m[1].replace(/\t/g,'    ').length/4:0;});
+  const nestDepth=Math.max(...indLevels);
+  const magicNums=/(?<![a-zA-Z_"'])((?!0\b|1\b)[2-9]\d{2,})[^a-zA-Z_"'.]/.test(code);
+  const printStmts=cm(code,/System\.out\.print(?:ln|f)?\s*\(/g);
+  let maintainScore=60;
+  if(longMethods>0){maintainScore-=10*Math.min(longMethods,3);issues.push({severity:longMethods>2?'major':'minor',title:`${longMethods} potentially long method${longMethods>1?'s':''}`,detail:'Refactor long methods into smaller, single-responsibility helpers.'});}
+  else{maintainScore+=15;strengths.push('Methods appear appropriately sized.');}
+  if(nestDepth>6){maintainScore-=15;issues.push({severity:'major',title:`Deep nesting (${nestDepth} levels)`,detail:'Flatten with guard clauses, extracted private methods, or strategy patterns.'});}
+  else if(nestDepth>4){maintainScore-=5;issues.push({severity:'minor',title:`Moderate nesting (${nestDepth} levels)`,detail:'Consider guard clauses or extracting nested blocks into private methods.'});}
+  else{maintainScore+=10;strengths.push(`Shallow nesting (max ${nestDepth} levels).`);}
+  if(magicNums){maintainScore-=10;issues.push({severity:'minor',title:'Magic numbers present',detail:'Define as private static final int CONSTANT_NAME = value;'});}
+  if(printStmts>3){maintainScore-=8;issues.push({severity:'minor',title:`${printStmts} System.out.print statements`,detail:'Use SLF4J + Logback/Log4j2 for production logging, not System.out.'});}
+
+  const badClassNames=(code.match(/class\s+([a-z]\w*)/g)||[]).length;
+  const hasConsts=/\bprivate\s+static\s+final\b|\bpublic\s+static\s+final\b/.test(code);
+  const usesGenerics=/List<|Map<|Set<|Optional<|Collection</.test(code);
+  const longLines=lines.filter(l=>l.length>120).length;
+  let styleScore=60;
+  if(badClassNames>0){styleScore-=15;issues.push({severity:'major',title:`${badClassNames} class${badClassNames>1?'es':''} not in PascalCase`,detail:'Java class names must start uppercase. e.g. MyService, not myService.'});}
+  if(hasConsts){styleScore+=15;strengths.push('Static final constants defined — named constants improve maintainability.');}
+  if(usesGenerics){styleScore+=10;strengths.push('Generics used — type-safe collections reduce ClassCastException risk.');}
+  if(longLines>5){styleScore-=8;issues.push({severity:'minor',title:`${longLines} lines exceed 120 characters`,detail:'Wrap long lines for readability in code review tools.'});}
+
+  const tryCatch=cm(code,/\btry\s*\{/g);
+  const emptyCatch=(code.match(/catch\s*\([^)]*\)\s*\{\s*\}/g)||[]).length;
+  const catchThrow=cm(code,/catch\s*\(\s*Throwable\s+/g);
+  const catchExcept=cm(code,/catch\s*\(\s*Exception\s+/g);
+  const stackTrace=cm(code,/\.printStackTrace\s*\(\s*\)/g);
+  const throwsDecl=cm(code,/\bthrows\s+\w+/g);
+  let errorScore=50;
+  if(tryCatch>0){errorScore+=15;strengths.push(`${tryCatch} try/catch block${tryCatch>1?'s':''} — exceptions handled.`);}
+  if(emptyCatch>0){errorScore-=25;issues.push({severity:'critical',title:`${emptyCatch} empty catch block${emptyCatch>1?'s':''}`,detail:'Empty catch silently swallows exceptions. Log or re-throw with context.'});}
+  if(catchThrow>0){errorScore-=15;issues.push({severity:'major',title:'Catching Throwable',detail:'Catching Throwable includes Errors like OutOfMemoryError. Catch Exception or specific types instead.'});}
+  if(catchExcept>0){errorScore-=8;issues.push({severity:'minor',title:`${catchExcept} broad catch(Exception)`,detail:'Catch the most specific exception type you expect.'});}
+  if(stackTrace>0){errorScore-=10;issues.push({severity:'minor',title:`${stackTrace} printStackTrace() call${stackTrace>1?'s':''}`,detail:'Use log.error("context", e) via SLF4J instead of printStackTrace().'});}
+  if(throwsDecl>0){strengths.push(`${throwsDecl} throws declaration${throwsDecl>1?'s':''} — checked exception contracts declared.`);}
+
+  const hasInterfaces=cm(code,/\binterface\s+\w+/g);
+  const hasAbstract=cm(code,/\babstract\s+class\b|\babstract\s+\w+\s+\w+\s*\(/g);
+  const hasAnnotations=cm(code,/@(?:Override|Autowired|Component|Service|Repository|Controller|Bean|Test|Before|After)\b/g);
+  const usesDI=/@Autowired|@Inject/.test(code);
+  const hardUrls=cm(code,/https?:\/\/[^\s"']+/g);
+  const usesBuilder=/\.builder\(\)|Builder\s+\w+\s*=/.test(code);
+  let extendScore=50;
+  if(hasInterfaces>0){extendScore+=20;strengths.push(`${hasInterfaces} interface${hasInterfaces>1?'s':''} — dependency inversion principle supported.`);}
+  if(hasAbstract>0){extendScore+=12;strengths.push('Abstract classes/methods — template method pattern.');}
+  if(usesDI){extendScore+=15;strengths.push('Dependency injection — loosely coupled, highly testable architecture.');}
+  if(hasAnnotations>2){extendScore+=8;strengths.push(`${hasAnnotations} framework annotations — declarative programming.`);}
+  if(usesBuilder){extendScore+=8;strengths.push('Builder pattern — clean complex object construction.');}
+  if(hardUrls>0){extendScore-=10;issues.push({severity:'minor',title:`${hardUrls} hardcoded URL${hardUrls>1?'s':''}`,detail:'Externalise to application.properties or environment variables.'});}
+
+  const sqlConcat=/(?:executeQuery|executeUpdate|prepareStatement|createStatement)\s*\([^)]*\+/.test(code);
+  const runtimeExec=/Runtime\.getRuntime\s*\(\s*\)\.exec|ProcessBuilder/.test(code);
+  const hardSecrets=/(?:password|passwd|apiKey|secretKey|token)\s*=\s*["'][^"']{4,}["']/i.test(code);
+  const xmlXxe=/DocumentBuilderFactory|SAXParserFactory/.test(code)&&!/setFeature.*DISALLOW_DOCTYPE|setFeature.*XMLConstants/.test(code);
+  const serializable=/implements\s+Serializable/.test(code);
+  let securityScore=75;
+  if(sqlConcat){securityScore-=35;issues.push({severity:'critical',title:'SQL injection risk — query string concatenation',detail:'Use PreparedStatement with parameterized queries. Never concatenate user input into SQL.'});}
+  if(runtimeExec){securityScore-=20;issues.push({severity:'major',title:'Runtime.exec() / ProcessBuilder',detail:'OS command injection risk. Validate all inputs, avoid shell=true patterns, whitelist allowed commands.'});}
+  if(hardSecrets){securityScore-=35;issues.push({severity:'critical',title:'Possible hardcoded credentials',detail:'Use Spring @Value with externalized config, environment variables, or a secrets manager (Vault, AWS Secrets Manager).'});}
+  if(xmlXxe){securityScore-=20;issues.push({severity:'major',title:'XML parser may be vulnerable to XXE',detail:'Disable external entity processing: factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true)'});}
+  if(serializable&&!code.includes('serialVersionUID')){securityScore-=5;issues.push({severity:'minor',title:'Serializable missing serialVersionUID',detail:'Add: private static final long serialVersionUID = 1L; to prevent InvalidClassException.'});}
+  if(!sqlConcat&&!hardSecrets&&!runtimeExec){strengths.push('No obvious security issues (SQL injection, hardcoded credentials, command injection) detected.');}
+
+  const strPlusLoop=/for\s*\([^)]+\)[^{]*\{[\s\S]{0,200}String\s+\w+\s*\+=|for\s*\([^)]+\)[^{]*\{[\s\S]{0,200}\+=\s*["']/.test(code);
+  const usesSB=/StringBuilder|StringBuffer/.test(code);
+  const nestedLoops=/for\s*\([^)]+\)[^{]*\{[^{}]*for\s*\(/.test(code);
+  const closesRes=/try\s*\([^)]+\)/.test(code);
+  const usesStreams=/\.stream\s*\(\)|Stream\.</.test(code);
+  let perfScore=68;
+  if(strPlusLoop&&!usesSB){perfScore-=20;issues.push({severity:'major',title:'String + inside loop',detail:'String concatenation in loops is O(n2). Use StringBuilder.append() for O(n) performance.'});}
+  if(usesSB){perfScore+=10;strengths.push('StringBuilder/StringBuffer used — efficient string construction.');}
+  if(nestedLoops){perfScore-=12;issues.push({severity:'minor',title:'Nested loops detected',detail:'O(n2) complexity. Consider HashMap lookups or stream operations.'});}
+  if(closesRes){perfScore+=15;strengths.push('try-with-resources — resources are automatically closed, preventing leaks.');}
+  else if(/new\s+(?:FileInputStream|FileOutputStream|Connection|PreparedStatement|BufferedReader)\s*\(/.test(code)){
+    perfScore-=15;issues.push({severity:'major',title:'Resources may not be closed',detail:'Use try-with-resources: try(Resource r = new Resource()) to guarantee closure.'});
+  }
+  if(usesStreams){perfScore+=10;strengths.push('Java Streams API — declarative, parallelizable data processing.');}
+
+  const hasJunit=/import\s+org\.junit|\bTest\s*\{|@Test\b/.test(code);
+  const hasMockito=/import\s+org\.mockito|\bMockito\b|\b@Mock\b|\b@InjectMocks\b/.test(code);
+  const hasAssertions=/assertEquals|assertTrue|assertNotNull|assertThat/.test(code);
+  let testScore=40;
+  if(hasJunit){testScore+=30;strengths.push('JUnit test annotations detected.');}
+  else{issues.push({severity:'suggestion',title:'No JUnit tests found',detail:'Add @Test methods in src/test/java using JUnit 5 and AssertJ.'});}
+  if(hasMockito){testScore+=20;strengths.push('Mockito — dependencies mocked for isolated unit tests.');}
+  if(hasAssertions){testScore+=10;strengths.push('Assertions present — tests make verifiable claims.');}
+  if(usesDI){testScore+=5;strengths.push('DI architecture — dependencies easily swapped with mocks.');}
+
+  const dims=[
+    {name:'Commenting & Docs', score:clamp(commentScore), status:scoreStatus(commentScore)},
+    {name:'Maintainability',   score:clamp(maintainScore),status:scoreStatus(maintainScore)},
+    {name:'Code Style',        score:clamp(styleScore),   status:scoreStatus(styleScore)},
+    {name:'Error Handling',    score:clamp(errorScore),   status:scoreStatus(errorScore)},
+    {name:'Extensibility',     score:clamp(extendScore),  status:scoreStatus(extendScore)},
+    {name:'Security',          score:clamp(securityScore),status:scoreStatus(securityScore)},
+    {name:'Performance',       score:clamp(perfScore),    status:scoreStatus(perfScore)},
+    {name:'Testability',       score:clamp(testScore),    status:scoreStatus(testScore)},
+  ];
+  const weights=[0.15,0.20,0.10,0.15,0.10,0.15,0.10,0.05];
+  const overall=finalScore(dims,weights);
+  const qw=[
+    ...(emptyCatch>0?['Add logging to empty catch blocks']:[]),
+    ...(stackTrace>0?['Replace printStackTrace() with logger.error("msg", e)']:[]),
+    ...(magicNums?['Define magic numbers as static final constants']:[]),
+    ...(printStmts>3?['Replace System.out with SLF4J logging']:[]),
+    ...(!hasJunit?['Add JUnit 5 tests in src/test/java']:[]),
+    ...(sqlConcat?['Use PreparedStatement for all SQL queries']:[]),
+    ...(hardSecrets?['Move credentials to application.properties or env vars']:[]),
+  ].slice(0,6);
+  return {overallScore:overall,grade:grade(overall),summary:buildSummary(totalLines,'Java',dims,issues,strengths),dimensions:dims,strengths,issues,quickWins:qw};
+}
+
+// ── HTML ──────────────────────────────────────────────────────────────────
+function analyzeHTML(code,docs){
+  const lines=code.split('\n'),totalLines=lines.length;
+  // Strip <script> and <style> content before running HTML pattern checks.
+  // This prevents false positives from regex literals or JS strings inside
+  // embedded scripts being matched as real HTML elements/attributes.
+  const htmlOnly=code
+    .replace(/<script[\s\S]*?<\/script>/gi,'<!-- script removed -->')
+    .replace(/<style[\s\S]*?<\/style>/gi,'<!-- style removed -->');
+  const issues=[],strengths=[];
+
+  // Structure — check the raw code (these are top-level attributes unlikely to appear in scripts)
+  const hasDoctype=/<!DOCTYPE\s+html\s*>/i.test(code);
+  const hasLang=/<html[^>]+lang\s*=\s*["'][a-z]/.test(code);
+  const hasCharset=/<meta[^>]+charset/i.test(code);
+  const hasViewport=/<meta[^>]+viewport/i.test(code);
+  const hasTitle=/<title>[^<]+<\/title>/i.test(code);
+  const hasMetaDesc=/<meta[^>]+name\s*=\s*["']description["']/i.test(code);
+  const hasMain=/<main[\s>]/i.test(htmlOnly);
+  const hasSemantics=/<header[\s>]/i.test(htmlOnly)&&/<footer[\s>]/i.test(htmlOnly)&&/<nav[\s>]/i.test(htmlOnly);
+  let structScore=40;
+  if(hasDoctype){structScore+=15;strengths.push('DOCTYPE html declared — correct HTML5 document type.');}
+  else{issues.push({severity:'critical',title:'Missing DOCTYPE html',detail:'Without DOCTYPE browsers enter quirks mode. Add <!DOCTYPE html> as the very first line.'});}
+  if(hasLang){structScore+=10;strengths.push('lang attribute on html element — critical for screen readers and SEO.');}
+  else{issues.push({severity:'major',title:'Missing lang on html element',detail:'Add lang="en" (or your language code) to <html>. Screen readers use this for pronunciation.'});}
+  if(hasCharset){structScore+=8;strengths.push('meta charset declared — character encoding is explicit.');}
+  else{issues.push({severity:'major',title:'Missing meta charset',detail:'Add <meta charset="UTF-8"> as the first element in <head>.'});}
+  if(hasViewport){structScore+=8;strengths.push('viewport meta tag present — responsive layout configured.');}
+  else{issues.push({severity:'major',title:'Missing viewport meta tag',detail:'Add <meta name="viewport" content="width=device-width, initial-scale=1"> for mobile support.'});}
+  if(hasTitle){structScore+=8;strengths.push('title tag present — browser tabs, bookmarks, and SEO.');}
+  else{issues.push({severity:'major',title:'Missing title tag',detail:'Every page needs a descriptive <title> element.'});}
+  if(hasMain){structScore+=5;strengths.push('main landmark element — good document structure.');}
+  if(hasSemantics){structScore+=5;strengths.push('Semantic structure (header, nav, footer) — excellent for accessibility and SEO.');}
+
+  // Accessibility — use htmlOnly to avoid false positives from regex patterns in embedded scripts
+  const imgTags=(htmlOnly.match(/<img\b[^>]*/gi)||[]);
+  const imgNoAlt=imgTags.filter(t=>!/\balt\s*=/.test(t)).length;
+  const ariaLabels=cm(htmlOnly,/aria-label\s*=|aria-labelledby\s*=|aria-describedby\s*=/g);
+  const ariaRoles=cm(htmlOnly,/\brole\s*=\s*["']/g);
+  const tabPosFocus=(htmlOnly.match(/tabindex\s*=\s*["'][1-9]/g)||[]).length;
+  const headings=[];for(let i=1;i<=6;i++){if(new RegExp('<h'+i+'[\\s>]','i').test(htmlOnly))headings.push(i);}
+  const headingSkip=headings.some((h,i)=>i>0&&h-headings[i-1]>1);
+  let accessScore=40;
+  if(imgNoAlt>0){accessScore-=15;issues.push({severity:'major',title:`${imgNoAlt} image${imgNoAlt>1?'s':''} missing alt text`,detail:'All img tags need alt. Use descriptive text for informational images, alt="" for decorative ones.'});}
+  else if(imgTags.length>0){accessScore+=15;strengths.push(`All ${imgTags.length} image${imgTags.length>1?'s':''} have alt attributes.`);}
+  if(ariaLabels>0){accessScore+=10;strengths.push(`${ariaLabels} ARIA label${ariaLabels>1?'s':''} — assistive technology support.`);}
+  if(ariaRoles>0){accessScore+=8;strengths.push(`${ariaRoles} ARIA role${ariaRoles>1?'s':''} — semantic roles for screen readers.`);}
+  if(tabPosFocus>0){accessScore-=10;issues.push({severity:'minor',title:`${tabPosFocus} positive tabindex values`,detail:'Positive tabindex disrupts natural tab order. Use tabindex="0" to include, -1 to exclude.'});}
+  if(headingSkip){accessScore-=8;issues.push({severity:'minor',title:'Heading hierarchy skips levels',detail:'Use sequential heading levels (h1 to h2 to h3). Screen reader users navigate by headings.'});}
+  else if(headings.length>0){accessScore+=10;strengths.push(`Sequential heading hierarchy (${headings.map(h=>'h'+h).join(' > ')}).`);}
+
+  // Performance — use htmlOnly so inline <script> blocks don't count as "no src" scripts
+  const inlineStyles=cm(htmlOnly,/\bstyle\s*=\s*["'][^"']{20,}["']/g);
+  const noAsyncDefer=(code.match(/<script[^>]+src[^>]*>/gi)||[]).filter(s=>!/async|defer/.test(s)).length;
+  const largeBase64=cm(htmlOnly,/src\s*=\s*["']data:image\/[^;]+;base64,[A-Za-z0-9+/]{5000,}/g);
+  let perfScore=65;
+  if(inlineStyles>3){perfScore-=12;issues.push({severity:'minor',title:`${inlineStyles} elements with heavy inline styles`,detail:'Move inline styles to CSS classes for caching, consistency, and maintainability.'});}
+  if(noAsyncDefer>0){perfScore-=15;issues.push({severity:'major',title:`${noAsyncDefer} render-blocking script${noAsyncDefer>1?'s':''}`,detail:'Add defer (maintains order) or async (independent scripts) to external script tags to unblock HTML parsing.'});}
+  else if((code.match(/<script[^>]+src/gi)||[]).length>0){perfScore+=10;strengths.push('External scripts use async or defer — non-blocking.');}
+  if(largeBase64>0){perfScore-=15;issues.push({severity:'major',title:`${largeBase64} large inline base64 image${largeBase64>1?'s':''}`,detail:'Large base64 images bloat HTML. Serve as separate image files for browser caching and lazy loading.'});}
+
+  // SEO
+  const hasOg=/<meta[^>]+property\s*=\s*["']og:/.test(code);
+  const hasCanonical=/<link[^>]+rel\s*=\s*["']canonical["']/.test(code);
+  const hasH1=/<h1[\s>]/i.test(htmlOnly);
+  const multiH1=(htmlOnly.match(/<h1[\s>]/gi)||[]).length>1;
+  const hasLdJson=/<script[^>]+type\s*=\s*["']application\/ld\+json["']/.test(code);
+  let seoScore=50;
+  if(hasMetaDesc){seoScore+=15;strengths.push('Meta description present — shown in search engine results.');}
+  else{issues.push({severity:'minor',title:'Missing meta description',detail:'Add <meta name="description" content="..."> (150-160 chars) for search result snippets.'});}
+  if(hasH1){seoScore+=10;strengths.push('h1 heading present — primary topic defined for search engines.');}
+  else{issues.push({severity:'minor',title:'No h1 element',detail:'Every page should have exactly one h1 describing its primary topic.'});}
+  if(multiH1){seoScore-=10;issues.push({severity:'minor',title:'Multiple h1 elements',detail:'Use only one h1. Use h2-h6 for subheadings.'});}
+  if(hasOg){seoScore+=10;strengths.push('Open Graph tags — rich social media sharing previews.');}
+  if(hasCanonical){seoScore+=8;strengths.push('Canonical URL tag — prevents duplicate content SEO issues.');}
+  if(hasLdJson){seoScore+=10;strengths.push('JSON-LD structured data — enables rich search results.');}
+
+  // Security — use htmlOnly so JS string patterns (e.g. /\bon\w+/) don't fire as real inline handlers
+  const inlineEvt=cm(htmlOnly,/\bon\w+\s*=\s*["'][^"']+["']/g);
+  const httpRes=cm(htmlOnly,/(?:src|href|action)\s*=\s*["']http:\/\/(?!localhost|127\.)/g);
+  const formNoMethod=(htmlOnly.match(/<form\b[^>]*/gi)||[]).filter(f=>!/method\s*=/.test(f)).length;
+  const blankNoRel=(htmlOnly.match(/target\s*=\s*["']_blank["']/gi)||[]).filter(()=>!/rel\s*=\s*["'][^"']*noopener/i.test(code)).length;
+  let securityScore=70;
+  if(inlineEvt>3){securityScore-=15;issues.push({severity:'minor',title:`${inlineEvt} inline event handler${inlineEvt>1?'s':''}`,detail:'Inline onclick/onload conflict with Content Security Policy. Use addEventListener() in external JS.'});}
+  if(httpRes>0){securityScore-=20;issues.push({severity:'major',title:`${httpRes} non-HTTPS resource${httpRes>1?'s':''}`,detail:'HTTP resources are blocked on HTTPS pages (mixed content). Change all src/href to HTTPS.'});}
+  if(formNoMethod>0){securityScore-=8;issues.push({severity:'minor',title:`${formNoMethod} form${formNoMethod>1?'s':''} without explicit method`,detail:'Forms default to GET, appending data to the URL. Set method="post" for forms with sensitive data.'});}
+  if(blankNoRel>0){securityScore-=8;issues.push({severity:'minor',title:`_blank links without rel="noopener"`,detail:'Add rel="noopener noreferrer" to all target="_blank" links to prevent reverse tabnapping.'});}
+  if(!inlineEvt&&!httpRes){strengths.push('No inline event handlers or insecure HTTP resources detected.');}
+
+  // Maintainability — use htmlOnly to prevent regex in JS matching as deprecated tags or commented code
+  const deprecated=cm(htmlOnly,/<(?:font|center|marquee|blink|strike|tt|big)\b/gi);
+  const commentedCode=(htmlOnly.match(/<!--[\s\S]*?<\w+[\s\S]*?-->/g)||[]).length;
+  const allIds=(htmlOnly.match(/\bid\s*=\s*["']([^"']+)["']/gi)||[]).map(m=>(m.match(/["']([^"']+)["']/)||['',''])[1]);
+  const dupIds=allIds.length-new Set(allIds).size;
+  const inlineStyleCount=cm(htmlOnly,/\bstyle\s*=\s*["']/g);
+  let maintainScore=60;
+  if(deprecated>0){maintainScore-=15;issues.push({severity:'major',title:`${deprecated} deprecated HTML tag${deprecated>1?'s':''}`,detail:'Tags like font, center, marquee are obsolete. Use CSS for styling. Use strong/em instead of b/i for semantic meaning.'});}
+  else{strengths.push('No deprecated HTML tags (font, center, marquee) found.');}
+  if(commentedCode>2){maintainScore-=8;issues.push({severity:'minor',title:`${commentedCode} blocks of commented-out HTML`,detail:'Delete unused markup — version control preserves history. Commented code confuses future maintainers.'});}
+  if(dupIds>0){maintainScore-=20;issues.push({severity:'critical',title:`${dupIds} duplicate id attribute${dupIds>1?'s':''}`,detail:'IDs must be unique per page. Duplicates break CSS rules, JS querySelector, accessibility labels, and fragment links.'});}
+  if(inlineStyleCount===0){maintainScore+=15;strengths.push('No inline style attributes — styling is properly separated.');}
+  else if(inlineStyleCount>10){maintainScore-=10;issues.push({severity:'minor',title:`${inlineStyleCount} inline style attributes`,detail:'Move to CSS classes for reusability and maintainability.'});}
+
+  const dims=[
+    {name:'Document Structure',score:clamp(structScore),  status:scoreStatus(structScore)},
+    {name:'Accessibility',     score:clamp(accessScore),  status:scoreStatus(accessScore)},
+    {name:'Performance',       score:clamp(perfScore),    status:scoreStatus(perfScore)},
+    {name:'SEO',               score:clamp(seoScore),     status:scoreStatus(seoScore)},
+    {name:'Security',          score:clamp(securityScore),status:scoreStatus(securityScore)},
+    {name:'Maintainability',   score:clamp(maintainScore),status:scoreStatus(maintainScore)},
+  ];
+  const weights=[0.20,0.25,0.15,0.15,0.15,0.10];
+  const overall=finalScore(dims,weights);
+  const qw=[
+    ...(!hasDoctype?['Add <!DOCTYPE html> as the very first line']:[]),
+    ...(!hasLang?['Add lang="en" to the html element']:[]),
+    ...(imgNoAlt>0?[`Add alt text to ${imgNoAlt} image${imgNoAlt>1?'s':''}`]:[]),
+    ...(noAsyncDefer>0?['Add defer or async to external script tags']:[]),
+    ...(dupIds>0?['Fix duplicate id attributes — IDs must be unique']:[]),
+    ...(blankNoRel>0?['Add rel="noopener noreferrer" to _blank links']:[]),
+    ...(!hasMetaDesc?['Add a meta description tag']:[]),
+    ...(httpRes>0?['Upgrade all HTTP resource URLs to HTTPS']:[]),
+  ].slice(0,6);
+  return {overallScore:overall,grade:grade(overall),summary:buildSummary(totalLines,'HTML',dims,issues,strengths),dimensions:dims,strengths,issues,quickWins:qw};
+}
+
+// ── Dispatcher ────────────────────────────────────────────────────────────
+function analyzeCode(code,docs,forceLang){
+  const lang=forceLang==='auto'?detectLanguage(code):forceLang;
+  let r;
+  if(lang==='python') r=analyzePython(code,docs);
+  else if(lang==='java') r=analyzeJava(code,docs);
+  else if(lang==='html') r=analyzeHTML(code,docs);
+  else r=analyzeJS(code,docs);
+  r.lang=lang;
+  return r;
+}
+
+// ── UI ────────────────────────────────────────────────────────────────────
+let selectedLang='auto';
+
+function setLang(lang){
+  selectedLang=lang;
+  document.querySelectorAll('.lang-btn').forEach(b=>{
+    b.classList.remove('active');
+    b.setAttribute('aria-pressed','false');
+  });
+  const active=document.getElementById('lang-'+lang);
+  active.classList.add('active');
+  active.setAttribute('aria-pressed','true');
+  updateBadge();
+}
+function updateBadge(){
+  const code=document.getElementById('code-input').value;
+  const badge=document.getElementById('detected-badge');
+  if(selectedLang==='auto'&&code.trim().length>50){
+    badge.textContent='Detected: '+langMeta[detectLanguage(code)].label;
+    badge.classList.remove('badge-hidden');
+  } else {
+    badge.classList.add('badge-hidden');
+  }
+}
+function onCodeInput(){
+  const v=document.getElementById('code-input').value;
+  const empty=v.trim().length===0;
+  document.getElementById('code-input').classList.toggle('has-value',!empty);
+  const btn=document.getElementById('analyze-btn');
+  btn.disabled=empty;
+  btn.setAttribute('aria-disabled',String(empty));
+  updateBadge();
+}
+function onDocsInput(){
+  const v=document.getElementById('docs-input').value;
+  document.getElementById('docs-input').classList.toggle('has-value',v.trim().length>0);
+}
+function resetUI(){
+  document.getElementById('result-panel').style.display='none';
+  document.getElementById('input-panel').style.display='block';
+  ['code-input','docs-input'].forEach(id=>{document.getElementById(id).value='';document.getElementById(id).classList.remove('has-value');});
+  const btn=document.getElementById('analyze-btn');
+  btn.disabled=true;
+  btn.setAttribute('aria-disabled','true');
+  document.getElementById('detected-badge').classList.add('badge-hidden');
+}
+function switchTab(name){
+  ['issues','strengths','quickwins'].forEach(t=>{
+    const isActive=t===name;
+    document.getElementById('tab-'+t).classList.toggle('active',isActive);
+    document.getElementById('tab-'+t).setAttribute('aria-selected',String(isActive));
+    document.getElementById('panel-'+t).classList.toggle('active',isActive);
+  });
+}
+
+function runAnalysis(){
+  const code=document.getElementById('code-input').value;
+  const docs=document.getElementById('docs-input').value;
+  if(!code.trim()) return;
+
+  const r=analyzeCode(code,docs,selectedLang);
+  document.getElementById('input-panel').style.display='none';
+  document.getElementById('result-panel').style.display='block';
+
+  // Lang pill
+  const m=langMeta[r.lang]||langMeta.js;
+  const pill=document.getElementById('result-lang-pill');
+  pill.textContent=m.label;
+  pill.className='lang-pill lang-pill-'+r.lang;
+
+  // Ring animation — colour via CSS class, not inline style
+  const C=2*Math.PI*52;
+  const fg=document.getElementById('ring-fg');
+  const ringCls=r.overallScore>=80?'ring-good':r.overallScore>=60?'ring-fair':r.overallScore>=40?'ring-poor':'ring-bad';
+  ['ring-good','ring-fair','ring-poor','ring-bad'].forEach(c=>{fg.classList.remove(c);});
+  fg.classList.add(ringCls);
+  fg.style.strokeDasharray=C;fg.style.strokeDashoffset=C;
+  const scoreEl=document.getElementById('ring-score');
+  const gradeEl=document.getElementById('ring-grade');
+  ['ring-good','ring-fair','ring-poor','ring-bad'].forEach(c=>{scoreEl.classList.remove(c);gradeEl.classList.remove(c);});
+  scoreEl.classList.add(ringCls);
+  gradeEl.classList.add(ringCls);
+  gradeEl.textContent=r.grade;
+  let start=null;
+  function anim(ts){
+    if(!start)start=ts;
+    const p=Math.min((ts-start)/1200,1),e=1-Math.pow(1-p,3);
+    scoreEl.textContent=Math.round(e*r.overallScore);
+    fg.style.strokeDashoffset=C-e*(r.overallScore/100)*C;
+    if(p<1)requestAnimationFrame(anim);
+  }
+  requestAnimationFrame(anim);
+
+  document.getElementById('summary-text').textContent=r.summary;
+
+  const dimEl=document.getElementById('dimensions');
+  dimEl.innerHTML='';
+  r.dimensions.forEach((d,i)=>{
+    const s=d.status;
+    const div=document.createElement('div');
+    div.className='dim-bar';
+    div.innerHTML='<div class="dim-bar-top"><span class="dim-name">'+d.name+'</span><span class="dim-score status-'+s+'">'+d.score+'</span></div><div class="dim-track"><div class="dim-fill fill-'+s+'" id="fill-'+i+'"></div></div>';
+    dimEl.appendChild(div);
+    setTimeout(()=>{const el=document.getElementById('fill-'+i);if(el)el.style.width=d.score+'%';},80+i*70);
+  });
+
+  document.getElementById('issues-count').textContent=r.issues.length;
+  document.getElementById('strengths-count').textContent=r.strengths.length;
+  document.getElementById('quickwins-count').textContent=r.quickWins.length;
+
+  function renderCards(panelId,items,emptyMsg,renderItem){
+    const el=document.getElementById(panelId);
+    el.innerHTML='';
+    if(!items.length){el.innerHTML='<div class="empty-state">'+emptyMsg+'</div>';return;}
+    items.forEach(item=>{const d=document.createElement('div');renderItem(d,item);el.appendChild(d);});
+  }
+
+  renderCards('panel-issues',r.issues,'No issues found! &#127881;',(d,iss)=>{
+    const sev=iss.severity||'minor';
+    const mv=severityMeta[sev]||severityMeta.minor;
+    d.className='issue-card issue-card-'+sev;
+    d.innerHTML='<div class="issue-header"><span aria-hidden="true">'+mv.icon+'</span><span class="severity-badge badge-'+sev+'">'+mv.label+'</span><span class="issue-title">'+iss.title+'</span></div><div class="issue-detail">'+iss.detail+'</div>';
+  });
+  renderCards('panel-strengths',r.strengths,'No strengths identified yet.',(d,s)=>{
+    d.className='strength-card';
+    d.innerHTML='<span class="strength-check">&#10003;</span><span class="strength-text">'+s+'</span>';
+  });
+  renderCards('panel-quickwins',r.quickWins,'No quick wins — code looks solid! &#128640;',(d,w)=>{
+    d.className='qw-card';
+    d.innerHTML='<span class="qw-arrow">&#8594;</span><span class="strength-text">'+w+'</span>';
+  });
+
+  switchTab('issues');
+}
+
+// ── Event wiring (no inline handlers) ────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+  // Language buttons
+  document.getElementById('lang-auto').addEventListener('click', function(){ setLang('auto'); });
+  document.getElementById('lang-js').addEventListener('click',   function(){ setLang('js'); });
+  document.getElementById('lang-python').addEventListener('click',function(){ setLang('python'); });
+  document.getElementById('lang-java').addEventListener('click', function(){ setLang('java'); });
+  document.getElementById('lang-html').addEventListener('click', function(){ setLang('html'); });
+
+  // Textareas
+  document.getElementById('code-input').addEventListener('input', onCodeInput);
+  document.getElementById('docs-input').addEventListener('input', onDocsInput);
+
+  // Buttons
+  document.getElementById('analyze-btn').addEventListener('click', runAnalysis);
+  document.getElementById('btn-back').addEventListener('click', resetUI);
+
+  // Tab buttons
+  document.getElementById('tab-issues').addEventListener('click',    function(){ switchTab('issues'); });
+  document.getElementById('tab-strengths').addEventListener('click', function(){ switchTab('strengths'); });
+  document.getElementById('tab-quickwins').addEventListener('click', function(){ switchTab('quickwins'); });
+});
+</script>
+</body>
+</html>
