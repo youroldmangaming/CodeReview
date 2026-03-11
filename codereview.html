@@ -47,6 +47,28 @@
   .lang-pill{font-size:9px;letter-spacing:0.12em;padding:3px 10px;border-radius:10px;font-weight:700;}
   .btn-back{background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--muted);padding:6px 14px;font-family:'JetBrains Mono',monospace;font-size:10px;cursor:pointer;letter-spacing:0.08em;transition:all 0.2s;}
   .btn-back:hover{border-color:rgba(78,201,176,0.35);color:var(--accent);}
+  .topbar-right{display:flex;align-items:center;gap:8px;}
+  .btn-fix-prompt{background:rgba(78,201,176,0.08);border:1px solid rgba(78,201,176,0.25);border-radius:6px;color:var(--accent);padding:6px 14px;font-family:'JetBrains Mono',monospace;font-size:10px;cursor:pointer;letter-spacing:0.08em;transition:all 0.2s;}
+  .btn-fix-prompt:hover{background:rgba(78,201,176,0.15);border-color:rgba(78,201,176,0.5);}
+  /* Fix Prompt Modal */
+  .modal-overlay{display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:20px;}
+  .modal-overlay.open{display:flex;}
+  .modal{background:#111214;border:1px solid rgba(255,255,255,0.1);border-radius:12px;width:100%;max-width:780px;max-height:90vh;display:flex;flex-direction:column;animation:fadeUp 0.25s ease both;}
+  .modal-header{display:flex;align-items:flex-start;justify-content:space-between;padding:18px 22px 14px;border-bottom:1px solid var(--border);flex-shrink:0;}
+  .modal-title{font-size:11px;letter-spacing:0.18em;color:var(--text);}
+  .modal-subtitle{font-size:10px;color:var(--dim);margin-top:3px;letter-spacing:0.04em;line-height:1.5;}
+  .modal-close{background:none;border:none;color:var(--dim);font-size:20px;cursor:pointer;padding:0 2px;line-height:1;transition:color 0.15s;flex-shrink:0;}
+  .modal-close:hover{color:var(--text);}
+  .modal-body{padding:16px 22px;overflow-y:auto;flex:1;}
+  .prompt-textarea{width:100%;min-height:360px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;color:rgba(255,255,255,0.72);font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.75;padding:16px;resize:vertical;outline:none;transition:border-color 0.2s;}
+  .prompt-textarea:focus{border-color:rgba(78,201,176,0.3);}
+  .modal-footer{padding:12px 22px 18px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:16px;flex-wrap:wrap;}
+  .modal-hint{font-size:10px;color:var(--dim);letter-spacing:0.03em;line-height:1.6;}
+  .modal-hint strong{color:rgba(255,255,255,0.45);}
+  .modal-actions{display:flex;gap:8px;flex-shrink:0;}
+  .btn-copy{background:var(--accent);border:none;border-radius:6px;color:#0c0c0e;padding:8px 20px;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:0.1em;cursor:pointer;transition:all 0.2s;white-space:nowrap;}
+  .btn-copy:hover{background:var(--accent2);}
+  .btn-copy.copied{background:#89d185;color:#0c0c0e;}
   .score-card{display:grid;grid-template-columns:auto 1fr;gap:26px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:14px;}
   .score-ring-wrap{display:flex;flex-direction:column;align-items:center;gap:6px;}
   .ring-svg{transform:rotate(-90deg);}
@@ -172,7 +194,10 @@
         <span>ANALYSIS COMPLETE</span>
         <span class="lang-pill" id="result-lang-pill" aria-label="Detected language"></span>
       </div>
-      <button class="btn-back" id="btn-back">&#8592; NEW REVIEW</button>
+      <div class="topbar-right">
+        <button class="btn-fix-prompt" id="btn-fix-prompt">&#9889; GENERATE FIX PROMPT</button>
+        <button class="btn-back" id="btn-back">&#8592; NEW REVIEW</button>
+      </div>
     </div>
     <div class="score-card" aria-label="Overall score">
       <div class="score-ring-wrap">
@@ -205,6 +230,29 @@
     <div class="tab-panel"        id="panel-strengths" role="tabpanel" aria-labelledby="tab-strengths"></div>
     <div class="tab-panel"        id="panel-quickwins" role="tabpanel" aria-labelledby="tab-quickwins"></div>
   </section>
+  <!-- Fix Prompt Modal -->
+  <div class="modal-overlay" id="fix-prompt-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title" id="modal-title">AI FIX PROMPT</div>
+          <div class="modal-subtitle">Copy this prompt and paste it into Claude, ChatGPT, or any AI assistant.<br>The prompt includes your original code and a prioritised list of issues to fix.</div>
+        </div>
+        <button class="modal-close" id="modal-close" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <textarea class="prompt-textarea" id="prompt-textarea" readonly aria-label="Generated fix prompt — select all and copy"></textarea>
+      </div>
+      <div class="modal-footer">
+        <div class="modal-hint">
+          <strong>Tip:</strong> You can edit the prompt before copying — e.g. ask it to preserve a specific coding style,<br>target a framework, or fix only the critical issues first.
+        </div>
+        <div class="modal-actions">
+          <button class="btn-copy" id="btn-copy-prompt">&#10003; COPY PROMPT</button>
+        </div>
+      </div>
+    </div>
+  </div>
   </main>
   <footer class="site-footer">
     <span>CodeReview. &mdash; 100% local &middot; no data leaves your browser</span>
@@ -1007,6 +1055,9 @@ function runAnalysis(){
   if(!code.trim())return;
 
   const r=analyzeCode(code,docs,selectedLang);
+  _lastResult = r;
+  // Stash code on the textarea element for the prompt builder
+  document.getElementById('code-input').dataset.lastCode = code;
   document.getElementById('input-panel').style.display='none';
   document.getElementById('result-panel').style.display='block';
 
@@ -1087,6 +1138,138 @@ function runAnalysis(){
   switchTab('issues');
 }
 
+// ── Fix Prompt Builder ────────────────────────────────────────────────────
+function buildFixPrompt(code, lang, result){
+  const langLabel = langMeta[lang]?.label || lang;
+  const sevOrder  = ['critical','major','minor','suggestion'];
+  const sevEmoji  = {critical:'🔴',major:'🟠',minor:'🟡',suggestion:'💡'};
+
+  // Group issues by severity
+  const bySev = {};
+  sevOrder.forEach(s=>bySev[s]=[]);
+  result.issues.forEach(iss=>{ if(bySev[iss.severity]) bySev[iss.severity].push(iss); });
+
+  const critCount = bySev.critical.length;
+  const majCount  = bySev.major.length;
+  const totalIssues = result.issues.length;
+
+  // ── Section builders ─────────────────────────────────────────────
+  function issueBlock(){
+    const lines=[];
+    sevOrder.forEach(sev=>{
+      if(!bySev[sev].length) return;
+      lines.push(`### ${sevEmoji[sev]} ${sev.toUpperCase()} (${bySev[sev].length})`);
+      bySev[sev].forEach((iss,i)=>{
+        lines.push(`${i+1}. **${iss.title}**`);
+        lines.push(`   - What: ${iss.detail}`);
+        if(iss.lines && iss.lines.length){
+          lines.push(`   - Where: line${iss.lines.length>1?'s':''} ${iss.lines.join(', ')}`);
+        }
+      });
+      lines.push('');
+    });
+    return lines.join('\n');
+  }
+
+  function quickWinsBlock(){
+    if(!result.quickWins.length) return '';
+    return '## ⚡ Quick Wins (highest-impact, lowest-effort)\n'
+      + result.quickWins.map((w,i)=>`${i+1}. ${w}`).join('\n')
+      + '\n';
+  }
+
+  function strengthsBlock(){
+    if(!result.strengths.length) return '';
+    return '## ✅ What to Preserve\n'
+      + 'These patterns are good — keep them intact:\n'
+      + result.strengths.map(s=>`- ${s}`).join('\n')
+      + '\n';
+  }
+
+  function dimensionBlock(){
+    return result.dimensions
+      .map(d=>`- ${d.name}: ${d.score}/100 (${d.status})`)
+      .join('\n');
+  }
+
+  // ── Persona & task framing ────────────────────────────────────────
+  const urgencyLine = critCount > 0
+    ? `There are **${critCount} critical issue${critCount>1?'s':''}** that must be fixed before this code ships.`
+    : majCount > 0
+    ? `There are **${majCount} major issue${majCount>1?'s':''}** that should be addressed.`
+    : `There are ${totalIssues} quality issue${totalIssues!==1?'s':''} to address.`;
+
+  const prompt = `You are an expert ${langLabel} developer performing a code review and refactor.
+
+${urgencyLine} Review the issues below, then rewrite the code to fix them. Maintain the original logic and intent — only change what is identified as a problem.
+
+---
+
+## 📋 Code Quality Report
+- **Language:** ${langLabel}
+- **Overall score:** ${result.overallScore}/100 (${result.grade})
+- **Lines analysed:** ${code.split('\n').length}
+- **Issues found:** ${totalIssues} (${critCount} critical, ${majCount} major, ${bySev.minor.length} minor, ${bySev.suggestion.length} suggestions)
+
+### Dimension scores
+${dimensionBlock()}
+
+---
+
+## 🐛 Issues to Fix
+${issueBlock()}
+${quickWinsBlock()}
+${strengthsBlock()}
+---
+
+## 📐 Instructions
+
+1. **Fix all critical and major issues** listed above — these are non-negotiable.
+2. **Address minor issues and suggestions** where you can do so without significantly restructuring the code.
+3. **Preserve what works** — do not change logic, algorithms, function signatures, or external interfaces unless required to fix an issue.
+4. **Explain your changes** — after the fixed code, provide a brief changelog grouped by issue severity.
+5. **Format your response as:**
+
+\`\`\`${lang === 'js' ? 'javascript' : lang}
+[your corrected code here]
+\`\`\`
+
+### Changelog
+[list what you changed and why, referencing the issue names above]
+
+---
+
+## 💻 Original Code
+
+\`\`\`${lang === 'js' ? 'javascript' : lang}
+${code}
+\`\`\`
+`;
+
+  return prompt.trim();
+}
+
+// ── Modal controller ──────────────────────────────────────────────────────
+let _lastResult = null; // store last analysis result for prompt generation
+
+function openFixPromptModal(){
+  if(!_lastResult) return;
+  const code = document.getElementById('code-input').value ||
+               document.getElementById('code-input').dataset.lastCode || '';
+  const prompt = buildFixPrompt(code, _lastResult.lang, _lastResult);
+  document.getElementById('prompt-textarea').value = prompt;
+  document.getElementById('fix-prompt-modal').classList.add('open');
+  document.getElementById('prompt-textarea').focus();
+  // Reset copy button
+  const btn = document.getElementById('btn-copy-prompt');
+  btn.textContent = '\u2713 COPY PROMPT';
+  btn.classList.remove('copied');
+}
+
+function closeFixPromptModal(){
+  document.getElementById('fix-prompt-modal').classList.remove('open');
+}
+
 // ── Event wiring (no inline handlers) ────────────────────────────────────
 document.addEventListener('DOMContentLoaded',function(){
   document.getElementById('lang-auto').addEventListener('click',function(){setLang('auto');});
@@ -1101,6 +1284,39 @@ document.addEventListener('DOMContentLoaded',function(){
   document.getElementById('tab-issues').addEventListener('click',function(){switchTab('issues');});
   document.getElementById('tab-strengths').addEventListener('click',function(){switchTab('strengths');});
   document.getElementById('tab-quickwins').addEventListener('click',function(){switchTab('quickwins');});
+
+  // Fix prompt modal
+  document.getElementById('btn-fix-prompt').addEventListener('click', openFixPromptModal);
+  document.getElementById('modal-close').addEventListener('click', closeFixPromptModal);
+  document.getElementById('fix-prompt-modal').addEventListener('click', function(e){
+    if(e.target === this) closeFixPromptModal(); // click backdrop to close
+  });
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape') closeFixPromptModal();
+  });
+
+  // Copy button
+  document.getElementById('btn-copy-prompt').addEventListener('click', function(){
+    const ta = document.getElementById('prompt-textarea');
+    navigator.clipboard.writeText(ta.value).then(()=>{
+      this.textContent = '✓ COPIED!';
+      this.classList.add('copied');
+      setTimeout(()=>{
+        this.textContent = '✓ COPY PROMPT';
+        this.classList.remove('copied');
+      }, 2200);
+    }).catch(()=>{
+      // Fallback for browsers without clipboard API
+      ta.select();
+      document.execCommand('copy');
+      this.textContent = '✓ COPIED!';
+      this.classList.add('copied');
+      setTimeout(()=>{
+        this.textContent = '✓ COPY PROMPT';
+        this.classList.remove('copied');
+      }, 2200);
+    });
+  });
 });
 
 </script>
