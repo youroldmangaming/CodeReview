@@ -1,6 +1,6 @@
 # CodeReview.
 
-Started in 2000 and recenntly uploaded to the public. Used in a commercial and educational setting during it's evolution.
+Started in 2000 and recently uploaded to the public. Used in a commercial and educational setting during it's evolution.
 
 A self-contained static code analysis tool that runs entirely in your browser. No server, no API keys, no data ever leaves your machine — open the HTML file and start analysing.
 <img width="1125" height="766" alt="image" src="https://github.com/user-attachments/assets/c1f7ef73-e7d3-4072-825d-792d174b80d6" />
