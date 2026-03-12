@@ -2048,14 +2048,40 @@ function obfHtml(code, level){
     return {code: out, renamedCount, stringsEncoded:0};
   }
 
+  // Heavy: obfuscate embedded <script> block contents (FIX B — was never reaching JS encoder)
+  stash.forEach(s=>{
+    if(s.tag !== 'script') return;
+    let sc = s.inner;
+    // Encode double-quoted strings
+    sc = sc.replace(/"([^"\\]*)"/g, (_, str)=>{
+      if(!str) return '""';
+      stringsEncoded++;
+      return '"' + [...str].map(c=>'\\x'+c.charCodeAt(0).toString(16).padStart(2,'0')).join('') + '"';
+    });
+    // Encode single-quoted strings (>= 3 chars)
+    sc = sc.replace(/'([^'\\]*)'/g, (_, str)=>{
+      if(!str || str.length < 3) return "'"+str+"'";
+      stringsEncoded++;
+      return "'" + [...str].map(c=>'\\x'+c.charCodeAt(0).toString(16).padStart(2,'0')).join('') + "'";
+    });
+    // Encode large numbers (float-safe)
+    sc = sc.replace(/\b(\d{3,})\b(?!\.\d)/g, (_,n)=>'0x'+parseInt(n).toString(16));
+    s.inner = sc;
+  });
+
   // Heavy: entity-encode visible text nodes
+  // FIX A — was only encoding cp > 127; pure ASCII text (all of this app) was unchanged.
+  // Now encodes all printable ASCII (>= 33) for text nodes without HTML entities,
+  // falls back to conservative encoding (>127 + <>"') when entities like &middot; are present.
   out = out.replace(/>([^<]{4,})</g, (match, text)=>{
     if(/^\s*$/.test(text)) return match;
+    if(/\x00STASH\d+\x00/.test(text)) return match;  // FIX C: never encode stash placeholders
     if(/^(?:&[a-zA-Z#][^;]{0,6};|\s)+$/.test(text)) return match;
     stringsEncoded++;
+    const hasEntities = /&/.test(text);
     const encoded = [...text].map(c=>{
-      const cp = c.charCodeAt(0);
-      return (cp > 127 || c === '<' || c === '>' || c === '"' || c === "'")
+      const cp = c.codePointAt(0);
+      return (!hasEntities && cp >= 33) || cp > 127 || c==='<' || c==='>' || c==='"' || c==="'"
         ? '&#'+cp+';' : c;
     }).join('');
     return '>'+encoded+'<';
